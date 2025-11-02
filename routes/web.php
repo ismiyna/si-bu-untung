@@ -49,6 +49,16 @@ Route::middleware('auth:staff')->group(function () {
     Route::post('/barang/quick-update', [BarangController::class, 'quickUpdate'])
         ->name('barang.quick.update');
 
+    // === Tambahan util (AJAX) ===
+    // Generate next ID by prefix
+    Route::get('/barang/next-id', [BarangController::class, 'nextId'])
+        ->name('barang.next-id');
+
+    // Lookup 1 barang by id untuk autofill form edit (dipakai tombol "Pilih")
+    Route::get('/barang/find', [BarangController::class, 'findById'])
+        ->name('barang.find');
+    // ============================
+
     // View: resources/views/barang/hapus.blade.php
     Route::get('/hapus', function () {
         $q = request('q');

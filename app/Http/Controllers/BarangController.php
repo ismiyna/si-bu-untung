@@ -32,7 +32,7 @@ class BarangController extends Controller
 
     public function store(Request $request)
     {
-        // Alur form lengkap (resource) – stok & harga tetap wajib
+        // Alur form lengkap (resource)
         $data = $request->validate([
             'id_barang'            => ['required','string','max:20','unique:barang,id_barang'],
             'nama_barang'          => ['required','string'],
@@ -53,7 +53,6 @@ class BarangController extends Controller
 
     public function update(Request $request, Barang $barang)
     {
-        // Alur form lengkap (resource)
         $data = $request->validate([
             'id_barang'            => ['required','string','max:20', Rule::unique('barang','id_barang')->ignore($barang->id_barang, 'id_barang')],
             'nama_barang'          => ['required','string'],
@@ -64,14 +63,20 @@ class BarangController extends Controller
         ]);
 
         $barang->update($data);
-        return redirect()->route('barang.index')->with('success','Barang diperbarui.');
+
+        // === Tetap di halaman /edit setelah simpan ===
+        $to = $request->input('redirect_to');
+        if (!empty($to)) {
+            return redirect($to)->with('success','Barang diperbarui.');
+        }
+        // fallback aman bila hidden tidak ikut terkirim
+        return back()->with('success','Barang diperbarui.');
     }
 
     public function destroy(Request $request, Barang $barang)
     {
         $barang->delete();
 
-        // Default balik ke halaman hapus (UI mockup), bisa override via input hidden redirect_to
         $to = $request->input('redirect_to') ?: route('ui.hapus');
         return redirect($to)->with('success','Barang dihapus.');
     }
@@ -98,7 +103,6 @@ class BarangController extends Controller
     /** Quick insert dari halaman /tambah (form cepat/minimal) */
     public function quickStore(Request $request)
     {
-        // HANYA id & nama yang wajib; lainnya opsional
         $data = $request->validate([
             'id_barang'            => ['required','string','max:20','unique:barang,id_barang'],
             'nama_barang'          => ['required','string'],
@@ -108,25 +112,23 @@ class BarangController extends Controller
             'tanggal_kedaluwarsa'  => ['nullable','date'],
         ]);
 
-        // Beri default aman untuk kolom numerik NOT NULL
         $data['stok_barang']  = $data['stok_barang']  ?? 0;
         $data['harga_satuan'] = $data['harga_satuan'] ?? 0;
 
         Barang::create($data);
 
-        // Kembali ke halaman tambah (mockup) dengan pesan sukses
         return redirect()->route('ui.tambah')->with('success', 'Barang berhasil ditambahkan.');
     }
 
     /**
      * Quick update satu field dari kartu mini (edit-page).
-     * Form mengirim: id_barang, type (nama|tanggal|stok), value
+     * Form mengirim: id_barang, type (nama|tanggal|stok|harga|gambar), value
      */
     public function quickUpdate(Request $request)
     {
         $request->validate([
             'id_barang' => ['required','exists:barang,id_barang'],
-            'type'      => ['required','in:nama,tanggal,stok'],
+            'type'      => ['required','in:nama,tanggal,stok,harga,gambar'],
         ]);
 
         $barang = Barang::where('id_barang', $request->id_barang)->firstOrFail();
@@ -142,7 +144,7 @@ class BarangController extends Controller
             case 'tanggal':
                 if ($request->filled('value')) {
                     $request->validate(['value' => ['date']]);
-                    $barang->tanggal_kedaluwarsa = $request->value; // format Y-m-d dari input type=date
+                    $barang->tanggal_kedaluwarsa = $request->value; // Y-m-d
                 } else {
                     $barang->tanggal_kedaluwarsa = null;
                 }
@@ -157,6 +159,20 @@ class BarangController extends Controller
                 $msg = 'Stok barang diperbarui.';
                 break;
 
+            case 'harga':
+                $request->validate(['value' => ['required','numeric','min:0']]);
+                $barang->harga_satuan = (float) $request->value;
+                $barang->save();
+                $msg = 'Harga satuan diperbarui.';
+                break;
+
+            case 'gambar':
+                $request->validate(['value' => ['nullable','string']]);
+                $barang->gambar_url = $request->value;
+                $barang->save();
+                $msg = 'Gambar URL diperbarui.';
+                break;
+
             default:
                 $msg = 'Tidak ada perubahan.';
         }
@@ -164,5 +180,64 @@ class BarangController extends Controller
         return back()
             ->withInput($request->only('q','id_barang','type','value'))
             ->with('success', $msg);
+    }
+
+    /**
+     * ===== Generate next id_barang berdasarkan prefix (AJAX) =====
+     * GET /barang/next-id?prefix=rkk -> { "next_id": "rkk001" }
+     */
+    public function nextId(Request $request)
+    {
+        $allowedPrefixes = [
+            'rkk'  => 'Rokok',
+            'mnyk' => 'Minyak',
+            'brs'  => 'Beras',
+            'mnm'  => 'Minuman',
+        ];
+
+        $prefix = strtolower(trim($request->query('prefix', '')));
+
+        if (! array_key_exists($prefix, $allowedPrefixes)) {
+            return response()->json(['message' => 'Prefix tidak dikenali.'], 422);
+        }
+
+        $maxId = Barang::where('id_barang', 'like', $prefix.'%')->max('id_barang');
+
+        $nextNum = 1;
+        if ($maxId && preg_match('/^'.preg_quote($prefix, '/').'(\d+)$/', $maxId, $m)) {
+            $nextNum = ((int) $m[1]) + 1;
+        }
+
+        $suffix = str_pad((string) $nextNum, 3, '0', STR_PAD_LEFT);
+
+        return response()->json(['next_id' => $prefix.$suffix]);
+    }
+
+    /**
+     * ===== Lookup barang by id untuk AUTOFILL (AJAX) =====
+     * GET /barang/find?id=rkk009
+     */
+    public function findById(Request $request)
+    {
+        $id = $request->query('id');
+
+        if (! $id) {
+            return response()->json(['message' => 'Parameter id wajib diisi.'], 422);
+        }
+
+        $barang = Barang::where('id_barang', $id)->first();
+
+        if (! $barang) {
+            return response()->json(['message' => 'Barang tidak ditemukan.'], 404);
+        }
+
+        return response()->json([
+            'id_barang'           => $barang->id_barang,
+            'nama_barang'         => $barang->nama_barang,
+            'stok_barang'         => (int) $barang->stok_barang,
+            'harga_satuan'        => (float) ($barang->harga_satuan ?? 0),
+            'gambar_url'          => $barang->gambar_url,
+            'tanggal_kedaluwarsa' => optional($barang->tanggal_kedaluwarsa)->format('Y-m-d'),
+        ]);
     }
 }

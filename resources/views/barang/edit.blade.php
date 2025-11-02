@@ -5,7 +5,7 @@
     // menjaga state ketika kembali dari validasi
     $q          = old('q', $q ?? request('q'));
     $selectedId = old('id_barang', $selectedId ?? request('id'));
-    $lastType   = old('type'); // untuk tahu kartu mana yang terakhir disubmit
+    $lastType   = old('type'); // legacy — tidak dipakai lagi setelah 1 tombol
   @endphp
 
   <style>
@@ -21,7 +21,7 @@
     .mini{background:#fff;border:1px solid #e5e7eb;border-radius:14px;box-shadow:0 10px 25px rgba(0,0,0,.06);padding:14px}
     .mini .label{font:600 13px/1.4 'Poppins',system-ui;color:#374151;margin-bottom:8px}
     .mini .row{display:flex;gap:10px}
-    .mini input[type="text"], .mini input[type="date"], .mini input[type="number"]{flex:1;border:1px solid #e5e7eb;border-radius:10px;padding:10px 12px;font:500 13px/20px 'Poppins',system-ui}
+    .mini input[type="text"], .mini input[type="date"], .mini input[type="number"], .mini select{flex:1;border:1px solid #e5e7eb;border-radius:10px;padding:10px 12px;font:500 13px/20px 'Poppins',system-ui}
     .btn-ghost{border:0;background:#f3f4f6;border-radius:10px;padding:10px 14px;font:600 12px 'Poppins',system-ui;color:#111;cursor:pointer}
     .btn-ghost[disabled]{opacity:.6;cursor:not-allowed}
     .hint{display:flex;align-items:center;gap:6px;margin-top:8px;font:500 11px/1.4 'Poppins',system-ui;color:#9ca3af}
@@ -44,6 +44,10 @@
     .page-btn.icon{font-weight:600}
     .page-container{max-width:1100px;margin:0 auto}
     .err{margin-top:8px;color:#b91c1c;font:600 12px 'Poppins',system-ui}
+
+    .actions{display:flex;justify-content:flex-end;margin-top:8px}
+    .btn-primary{background:#2563eb;color:#fff;border:none;border-radius:10px;padding:12px 18px;font:700 13px 'Poppins',system-ui;cursor:pointer}
+    .btn-primary[disabled]{opacity:.6;cursor:not-allowed}
   </style>
 
   <div class="page-container">
@@ -54,7 +58,6 @@
       <div class="alert alert-success">{{ session('success') }}</div>
     @endif
     @if($errors->any() && !$lastType)
-      {{-- fallback bila ada error umum --}}
       <div class="alert alert-error">{{ $errors->first() }}</div>
     @endif
 
@@ -71,70 +74,146 @@
       </form>
     </div>
 
-    {{-- 4 kartu mini --}}
+    {{-- ===================== PICKER ID + FORM UTAMA ===================== --}}
     <div class="grid-2">
-      {{-- Pilih ID --}}
+      {{-- Picker ID: Prefix + Nomor + Pilih --}}
       <div class="mini">
         <div class="label">Id Barang</div>
-        <form class="row" method="get" action="{{ route('ui.edit') }}">
-          <input type="text" name="id" value="{{ $selectedId }}" placeholder="Masukan Id Barang">
-          @if(!empty($q)) <input type="hidden" name="q" value="{{ $q }}"> @endif
-          <button type="submit" class="btn-ghost">Edit</button>
-        </form>
-        <div class="hint"><span class="dot"></span>Masukan Id Barang yang ingin di edit</div>
+        <div class="row">
+          <select id="prefixSelect" aria-label="Prefix">
+            <option value="">Pilih Id Barang</option>
+            <option value="rkk">RKK (Rokok)</option>
+            <option value="mnyk">MNYK (Minyak)</option>
+            <option value="brs">BRS (Beras)</option>
+            <option value="mnm">MNM (Minuman)</option>
+          </select>
+          <input type="text" id="numInput" placeholder="Nomor (cth: 009)" inputmode="numeric" pattern="[0-9]*" maxlength="3">
+          <button type="button" id="btnPick" class="btn-ghost">Pilih</button>
+        </div>
+        <div class="hint"><span class="dot"></span>Tulis nomor lalu klik <b>Pilih</b> <span style="opacity:.7">(contoh: RKK + 009 → rkk009)</span></div>
       </div>
 
-      {{-- Edit Tanggal --}}
+      {{-- Tanggal Kadaluwarsa (bagian form utama) --}}
       <div class="mini">
         <div class="label">Tanggal Kadaluwarsa</div>
-        <form class="row" method="post" action="{{ route('barang.quick.update') }}">
-          @csrf
-          <input type="hidden" name="type" value="tanggal">
-          <input type="hidden" name="id_barang" value="{{ $selectedId }}">
-          <input type="date" name="value" value="{{ $lastType==='tanggal' ? old('value') : '' }}">
-          <button type="submit" class="btn-ghost" {{ empty($selectedId) ? 'disabled' : '' }}>Edit</button>
-        </form>
-        @if($lastType==='tanggal' && $errors->has('value'))
-          <div class="err">{{ $errors->first('value') }}</div>
-        @endif
+        <input form="bulkForm" type="date" name="tanggal_kedaluwarsa" id="f_tanggal">
         <div class="hint"><span class="dot"></span>Pilih Tanggal Kadaluwarsa yang ingin di edit</div>
       </div>
 
-      {{-- Edit Nama --}}
+      {{-- Nama --}}
       <div class="mini">
         <div class="label">Nama Barang</div>
-        <form class="row" method="post" action="{{ route('barang.quick.update') }}">
-          @csrf
-          <input type="hidden" name="type" value="nama">
-          <input type="hidden" name="id_barang" value="{{ $selectedId }}">
-          <input type="text" name="value" placeholder="Masukan Nama Barang" value="{{ $lastType==='nama' ? old('value') : '' }}">
-          <button type="submit" class="btn-ghost" {{ empty($selectedId) ? 'disabled' : '' }}>Edit</button>
-        </form>
-        @if($lastType==='nama' && $errors->has('value'))
-          <div class="err">{{ $errors->first('value') }}</div>
-        @endif
+        <input form="bulkForm" type="text" name="nama_barang" id="f_nama" placeholder="Masukan Nama Barang">
         <div class="hint"><span class="dot"></span>Masukan Nama Barang yang ingin di edit</div>
       </div>
 
-      {{-- Edit Stok --}}
+      {{-- Stok --}}
       <div class="mini">
         <div class="label">Stok Barang</div>
-        <form class="row" method="post" action="{{ route('barang.quick.update') }}">
-          @csrf
-          <input type="hidden" name="type" value="stok">
-          <input type="hidden" name="id_barang" value="{{ $selectedId }}">
-          <input type="number" min="0" name="value" placeholder="Masukan Stok Barang" value="{{ $lastType==='stok' ? old('value') : '' }}">
-          <button type="submit" class="btn-ghost" {{ empty($selectedId) ? 'disabled' : '' }}>Edit</button>
-        </form>
-        @if($lastType==='stok' && $errors->has('value'))
-          <div class="err">{{ $errors->first('value') }}</div>
-        @endif
+        <input form="bulkForm" type="number" min="0" name="stok_barang" id="f_stok" placeholder="Masukan Stok Barang">
         <div class="hint"><span class="dot"></span>Masukan Stok Barang yang ingin di edit</div>
+      </div>
+
+      {{-- Harga --}}
+      <div class="mini">
+        <div class="label">Harga Satuan (Rp)</div>
+        <input form="bulkForm" type="number" min="0" name="harga_satuan" id="f_harga" placeholder="Masukan Harga Satuan">
+        <div class="hint"><span class="dot"></span>Masukan harga satuan (dalam rupiah)</div>
+      </div>
+
+      {{-- Gambar --}}
+      <div class="mini">
+        <div class="label">Gambar URL (link)</div>
+        <input form="bulkForm" type="text" name="gambar_url" id="f_gambar" placeholder="https://contoh.com/gambar.jpg">
+        <div class="hint"><span class="dot"></span>Tempelkan link gambar (opsional)</div>
       </div>
     </div>
 
-    {{-- Tabel + pagination --}}
-    <div class="tbl-card">
+    {{-- FORM UTAMA (satu tombol) --}}
+    <form id="bulkForm" method="post">
+      @csrf
+      @method('PATCH')
+      {{-- id_barang ikut dikirim; tampil readonly agar tidak salah ubah --}}
+      <input type="hidden" name="id_barang" id="f_id">
+      <div class="actions">
+        <button id="btnSave" class="btn-primary" type="submit" disabled>Simpan Perubahan</button>
+      </div>
+    </form>
+
+    {{-- JS: Picker → fetch barang.find → isi form; submit → route update/{id} --}}
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+        const prefix  = document.getElementById('prefixSelect');
+        const numIn   = document.getElementById('numInput');
+        const btnPick = document.getElementById('btnPick');
+
+        const form    = document.getElementById('bulkForm');
+        const btnSave = document.getElementById('btnSave');
+
+        const fId     = document.getElementById('f_id');
+        const fNama   = document.getElementById('f_nama');
+        const fStok   = document.getElementById('f_stok');
+        const fHarga  = document.getElementById('f_harga');
+        const fGambar = document.getElementById('f_gambar');
+        const fTgl    = document.getElementById('f_tanggal');
+
+        const updateAction = (id) => {
+          // route('barang.update','__ID__') diganti dinamis
+          form.action = "{{ route('barang.update', ['barang' => '__ID__']) }}".replace('__ID__', encodeURIComponent(id));
+        };
+
+        btnPick.addEventListener('click', async function () {
+          const p = (prefix.value || '').toLowerCase();
+          let n = (numIn.value || '').replace(/\D/g,'');
+          if (!p || n.length === 0) {
+            alert('Pilih prefix dan isi nomor (3 digit).');
+            return;
+          }
+          n = n.padStart(3,'0');
+          const id = p + n;
+
+          try {
+            const res = await fetch("{{ route('barang.find') }}?id=" + encodeURIComponent(id), {
+              headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            if (!res.ok) {
+              if (res.status === 404) {
+                alert('Barang dengan ID ' + id + ' tidak ditemukan.');
+              } else {
+                alert('Gagal mengambil data barang.');
+              }
+              return;
+            }
+            const b = await res.json();
+
+            // isi form
+            fId.value     = b.id_barang || id;
+            fNama.value   = b.nama_barang ?? '';
+            fStok.value   = b.stok_barang ?? 0;
+            fHarga.value  = b.harga_satuan ?? 0;
+            fGambar.value = b.gambar_url ?? '';
+            fTgl.value    = b.tanggal_kedaluwarsa ?? '';
+
+            updateAction(b.id_barang || id);
+            btnSave.disabled = false;
+          } catch (e) {
+            console.error(e);
+            alert('Terjadi kesalahan jaringan.');
+          }
+        });
+
+        // Guard saat submit
+        form.addEventListener('submit', function (ev) {
+          if (!fId.value) {
+            ev.preventDefault();
+            alert('Pilih ID barang terlebih dahulu.');
+          }
+        });
+      });
+    </script>
+
+    {{-- =================== Tabel + pagination =================== --}}
+    <div class="tbl-card" style="margin-top:18px">
       <div class="tbl-title">Table Barang</div>
       <div style="overflow-x:auto">
         <table>
@@ -142,6 +221,8 @@
             <tr>
               <th>Id Barang</th>
               <th>Nama Barang</th>
+              <th>Harga Satuan</th>
+              <th>Gambar</th>
               <th>Tanggal Kadaluwarsa</th>
               <th>Stok Barang</th>
             </tr>
@@ -151,11 +232,24 @@
               <tr>
                 <td>{{ $b->id_barang }}</td>
                 <td>{{ $b->nama_barang }}</td>
+                <td>
+                  @php $h = (int) ($b->harga_satuan ?? 0); @endphp
+                  {{ $h > 0 ? 'Rp '.number_format($h, 0, ',', '.') : '-' }}
+                </td>
+                <td>
+                  @if(!empty($b->gambar_url))
+                    <img src="{{ $b->gambar_url }}" alt="img" style="width:48px;height:48px;object-fit:cover;border-radius:6px;border:1px solid #eee">
+                  @else
+                    -
+                  @endif
+                </td>
                 <td>{{ optional($b->tanggal_kedaluwarsa)->format('d/m/Y') ?? '-' }}</td>
                 <td>{{ $b->stok_barang }}</td>
               </tr>
             @empty
-              <tr><td colspan="4" style="text-align:center;color:#6b7280;padding:16px">Tidak ada data.</td></tr>
+              <tr>
+                <td colspan="6" style="text-align:center;color:#6b7280;padding:16px">Tidak ada data.</td>
+              </tr>
             @endforelse
           </tbody>
         </table>
