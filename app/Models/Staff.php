@@ -7,7 +7,6 @@ use Illuminate\Notifications\Notifiable;
 use Filament\Models\Contracts\FilamentUser;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
-
 class Staff extends Authenticatable implements FilamentUser
 {
     use HasFactory, Notifiable;
@@ -17,8 +16,23 @@ class Staff extends Authenticatable implements FilamentUser
     public $incrementing = false;
     protected $keyType = 'string';
 
-    protected $fillable = ['id_staff','username','email','password','role'];
-    protected $hidden = ['password'];
+    protected $fillable = [
+        'id_staff',
+        'username',
+        'email',
+        'password',
+        'role',
+        'last_login_at',
+    ];
+
+    protected $hidden = ['password', 'remember_token'];
+
+    // ⬇️ Inilah cast untuk kolom tanggal
+    protected $casts = [
+        'last_login_at' => 'datetime',
+        'created_at'    => 'datetime',
+        'updated_at'    => 'datetime',
+    ];
 
     public function canAccessFilament(): bool
     {

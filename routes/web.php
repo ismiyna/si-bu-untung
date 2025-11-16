@@ -18,12 +18,12 @@ use App\Models\Barang;
 Route::get('/', fn () => view('welcome'))->name('welcome');
 
 /* ===================== AUTH (Custom) ===================== */
-Route::get('/login',  [AuthController::class, 'showLoginForm'])->name('login');
+Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
 Route::post('/login', [AuthController::class, 'login'])->name('login.attempt');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
 /* ================== REGISTER PELANGGAN =================== */
-Route::get('/pelanggan/register',  [PelangganAuthController::class, 'showRegisterForm'])
+Route::get('/pelanggan/register', [PelangganAuthController::class, 'showRegisterForm'])
     ->name('pelanggan.register');
 Route::post('/pelanggan/register', [PelangganAuthController::class, 'register'])
     ->name('pelanggan.register.store');

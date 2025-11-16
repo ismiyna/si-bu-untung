@@ -20,17 +20,24 @@ class Pelanggan extends Authenticatable
     protected $keyType = 'string';
 
     protected $fillable = [
-        // id_pelanggan tidak perlu diisi manual (akan diisi otomatis di booted)
-        'id_pelanggan',
+        'id_pelanggan',   // diisi otomatis pada booted()
         'nama_pelanggan',
         'alamat',
         'no_hp',
         'username',
         'email',
         'password',
+        'last_login_at',  // ⬅️ tambahkan agar bisa diisi saat login
     ];
 
     protected $hidden = ['password', 'remember_token'];
+
+    // ⬇️ Cast tanggal agar otomatis jadi instance Carbon saat diakses
+    protected $casts = [
+        'last_login_at' => 'datetime',
+        'created_at'    => 'datetime',
+        'updated_at'    => 'datetime',
+    ];
 
     /**
      * Mutator: otomatis hash password jika masih plaintext.
@@ -55,15 +62,12 @@ class Pelanggan extends Authenticatable
             }
 
             $prefix = 'PLG';
-            $digits = 6; // hasil total panjang 3 + 6 = 9 char (cukup dalam VARCHAR(12))
+            $digits = 6; // total panjang 3 + 6 = 9 char (cukup dalam VARCHAR(12))
 
             // Ambil nomor terbesar yang sudah ada (SUBSTRING mulai dari char ke-4 setelah 'PLG')
-            // Catatan: untuk benar-benar aman dari race condition pada traffic tinggi,
-            // bungkus pemanggilan create() di DB::transaction(...) lalu aktifkan lockForUpdate().
             $last = DB::table('pelanggan')
                 ->where('id_pelanggan', 'like', $prefix . '%')
                 ->selectRaw('COALESCE(MAX(CAST(SUBSTRING(id_pelanggan, 4) AS UNSIGNED)), 0) AS max_num')
-                // ->lockForUpdate() // aktifkan bila create() dipanggil dalam DB::transaction(...)
                 ->value('max_num');
 
             $nextNumber = ((int) $last) + 1;
@@ -76,6 +80,8 @@ class Pelanggan extends Authenticatable
      */
     public function transaksi()
     {
+        // Jika model Transaksi ada di App\Models\Transaksi, ini sudah benar.
+        // Jika namespace-nya berbeda, sesuaikan.
         return $this->hasMany(Transaksi::class, 'id_pelanggan', 'id_pelanggan');
     }
 }

@@ -3,60 +3,56 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Models\Staff;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Session;
+use App\Models\Staff;
+use Illuminate\Support\Carbon;
 
 class StaffController extends Controller
 {
-    // Menampilkan form login
     public function showLoginForm()
     {
         return view('auth.login');
     }
 
-    // Proses login
     public function login(Request $request)
     {
         $request->validate([
-            'identifier' => 'required', // Can be email or username
-            'password' => 'required'
+            'identifier' => 'required',
+            'password'   => 'required',
         ]);
 
-        // Check if identifier is an email or username
-        if (filter_var($request->identifier, FILTER_VALIDATE_EMAIL)) {
-            // If it's an email, find staff by email
-            $staff = Staff::where('email', $request->identifier)->first();
-        } else {
-            // If it's not an email, find staff by username
-            $staff = Staff::where('username', $request->identifier)->first();
-        }
+        // Cari staff berdasar email/username
+        $staff = filter_var($request->identifier, FILTER_VALIDATE_EMAIL)
+            ? Staff::where('email', $request->identifier)->first()
+            : Staff::where('username', $request->identifier)->first();
 
-        // If staff not found
         if (!$staff) {
-            return back()->withErrors(['identifier' => 'Username or Email not found.']);
+            return back()->withErrors(['identifier' => 'Username atau Email tidak ditemukan.']);
         }
-
-        // Check password
         if (!Hash::check($request->password, $staff->password)) {
-            return back()->withErrors(['password' => 'Invalid credentials.']);
+            return back()->withErrors(['password' => 'Kredensial salah.']);
         }
 
-        // Store staff data in session
-        Session::put('staff_id', $staff->id_staff);
-        Session::put('staff_role', $staff->role);
-        Session::put('staff_username', $staff->username);
+        // Login-kan via guard 'staff'
+        Auth::guard('staff')->login($staff);
 
-        // Redirect to dashboard
-        return redirect()->route('dashboard');
+        // ⬇️ SET last_login_at (WIB) — TARUH DI SINI
+        $staff->forceFill([
+            'last_login_at' => Carbon::now('Asia/Jakarta'),
+        ])->save();
+
+        // regen session & redirect
+        $request->session()->regenerate();
+        return redirect()->intended(route('dashboard'));
     }
 
-    // Logout
-    public function logout()
+    public function logout(Request $request)
     {
-        // Clear all session data
-        Session::flush();
+        Auth::guard('staff')->logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
 
-        return redirect()->route('login.form')->with('success', 'You have logged out successfully.');
+        return redirect()->route('login.form')->with('success', 'Berhasil logout.');
     }
 }

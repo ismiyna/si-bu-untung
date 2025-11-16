@@ -24,6 +24,7 @@
     html,body{height:100%}
     body{margin:0; font-family:'Poppins',system-ui,Segoe UI,Roboto,Helvetica,Arial; color:var(--text); background:var(--content-bg)}
     .layout{display:grid; grid-template-columns:260px 1fr; min-height:100vh}
+
     /* SIDEBAR */
     .sidebar{background:var(--sidebar); color:#fff; position:sticky; top:0; height:100vh; padding:16px 0}
     .logo{display:flex; align-items:center; gap:10px; padding:0 18px 18px; margin-bottom:8px; border-bottom:1px solid rgba(255,255,255,.06)}
@@ -38,15 +39,29 @@
     .submenu a:hover{color:#fff}
     .open .submenu{display:block}
     .open .caret{transform:rotate(180deg)}
+
     /* CONTENT */
     .content{padding:28px 34px}
-    .topbar{display:flex; align-items:center; justify-content:space-between; margin-bottom:18px}
-    .title{font-size:28px; font-weight:800; letter-spacing:.3px}
-    .user-btn{width:40px; height:40px; border-radius:50%; display:grid; place-items:center; background:#111; color:#fff}
     .divider{height:1px; background:#e8e8e8; margin:10px 0 24px}
+
+    /* Topbar refined */
+    .topbar{display:flex; align-items:center; gap:16px; margin-bottom:18px}
+    .page-title{font-size:28px; font-weight:800; letter-spacing:.3px}
+    .topbar-right{margin-left:auto; display:flex; align-items:center; gap:12px}
+    .role-badge{
+      background:#111; color:#fff; font-weight:700; font-size:.9rem;
+      padding:8px 12px; border-radius:999px; letter-spacing:.3px
+    }
+    .user-btn{width:40px; height:40px; border-radius:50%; display:grid; place-items:center; background:#111; color:#fff}
+
     /* CARDS */
     .grid{display:grid; grid-template-columns:repeat(2, minmax(280px,1fr)); gap:22px}
     @media (min-width:1100px){ .grid{grid-template-columns:repeat(2, 1fr)} }
+    @media (max-width:640px){
+      .page-title{font-size:22px}
+      .role-badge{font-size:.85rem; padding:6px 10px}
+      .grid{grid-template-columns:1fr}
+    }
     .card{background:var(--card-bg); border-radius:var(--radius); box-shadow:var(--shadow); padding:22px;}
     .metric{display:flex; align-items:flex-start; gap:14px}
     .metric .icon{width:42px; height:42px; border-radius:12px; display:grid; place-items:center}
@@ -111,29 +126,38 @@
 
   <!-- CONTENT -->
   <main class="content">
+
+    {{-- TOPBAR --}}
     <div class="topbar">
-      <div class="title">Owner</div>
-      <a class="user-btn" title="Akun">
-        <!-- user circle icon -->
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff">
-          <path d="M12 12c2.7 0 4.9-2.2 4.9-4.9S14.7 2.2 12 2.2 7.1 4.4 7.1 7.1 9.3 12 12 12Zm0 2.4c-3.3 0-9.9 1.7-9.9 5v1.9h19.8v-2c0-3.2-6.6-4.9-9.9-4.9Z"/>
-        </svg>
-      </a>
+      <div class="page-title">Dashboard</div>
+
+      <div class="topbar-right">
+        <span class="role-badge">
+          @auth('staff')
+            {{ ucwords(str_replace('_',' ', auth('staff')->user()->role ?? 'Staff')) }}
+          @else
+            Guest
+          @endauth
+        </span>
+
+        <a class="user-btn" title="Akun">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff" aria-hidden="true">
+            <path d="M12 12c2.7 0 4.9-2.2 4.9-4.9S14.7 2.2 12 2.2 7.1 4.4 7.1 7.1 9.3 12 12 12Zm0 2.4c-3.3 0-9.9 1.7-9.9 5v1.9h19.8v-2c0-3.2-6.6-4.9-9.9-4.9Z"/>
+          </svg>
+        </a>
+      </div>
     </div>
 
     <div class="divider"></div>
 
-    {{-- GRID METRICS --}}
+    {{-- FORMATTER RUPIAH --}}
     @php
-      $totalPenjualan = $totalPenjualan ?? 1350000;   // contoh fallback
-      $totalPengunjung = $totalPengunjung ?? 35;      // contoh fallback
-      $hampirExpire = $hampirExpire ?? 3;            // contoh fallback
-      $hampirHabis = $hampirHabis ?? 1;              // contoh fallback
-      $formatRupiah = fn($n) => 'Rp ' . number_format($n, 0, ',', '.');
+      $formatRupiah = fn($n) => 'Rp ' . number_format($n ?? 0, 0, ',', '.');
     @endphp
 
+    {{-- GRID METRICS --}}
     <div class="grid">
-      <!-- Total Penjualan -->
+      <!-- Total Penjualan (hari ini, sukses) -->
       <div class="card">
         <div class="metric">
           <div class="icon icon-bag">
@@ -143,12 +167,13 @@
           </div>
           <div>
             <h4>Total Penjualan</h4>
-            <div class="value">{{ $formatRupiah($totalPenjualan) }}</div>
+           <div class="value">{{ $formatRupiah($totalPenjualan ?? 0) }}</div>
+
           </div>
         </div>
       </div>
 
-      <!-- Total Pengunjung -->
+      <!-- Total Pengunjung (login hari ini) -->
       <div class="card">
         <div class="metric">
           <div class="icon icon-people">
@@ -158,12 +183,12 @@
           </div>
           <div>
             <h4>Total Pengunjung</h4>
-            <div class="value">{{ $totalPengunjung }}</div>
+            <div class="value">{{ $totalPengunjung ?? 0 }}</div>
           </div>
         </div>
       </div>
 
-      <!-- Hampir Kadaluwarsa -->
+      <!-- Hampir Kadaluwarsa (≤ 1 bulan) -->
       <div class="card">
         <div class="metric">
           <div class="icon icon-calendar">
@@ -173,12 +198,12 @@
           </div>
           <div>
             <h4>Total Barang Hampir Kadaluwarsa</h4>
-            <div class="value">{{ $hampirExpire }}</div>
+            <div class="value">{{ $hampirExpire ?? 0 }}</div>
           </div>
         </div>
       </div>
 
-      <!-- Hampir Habis -->
+      <!-- Hampir Habis (stok < 20) -->
       <div class="card">
         <div class="metric">
           <div class="icon icon-warning">
@@ -188,7 +213,7 @@
           </div>
           <div>
             <h4>Total Barang Hampir Habis</h4>
-            <div class="value">{{ $hampirHabis }}</div>
+            <div class="value">{{ $hampirHabis ?? 0 }}</div>
           </div>
         </div>
       </div>
